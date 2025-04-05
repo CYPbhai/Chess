@@ -1,15 +1,13 @@
-using NUnit.Framework.Interfaces;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public enum ChessPieceType
 {
     None,
     Pawn,
+    Bishop,
     Rook,
     Knight,
-    Bishop,
     Queen,
     King
 }
@@ -36,7 +34,7 @@ public class ChessPiece : MonoBehaviour
     }
     private void Update()
     {
-        transform.position = Vector3.Lerp(transform.position, desiredPosition, Time.deltaTime * 10);
+        transform.localPosition = Vector3.Lerp(transform.localPosition, desiredPosition, Time.deltaTime * 10);
         transform.localScale = Vector3.Lerp(transform.localScale, desiredScale, Time.deltaTime * 10);
     }
 
@@ -52,7 +50,7 @@ public class ChessPiece : MonoBehaviour
     {
         desiredPosition = position;
         if (force)
-            transform.position = desiredPosition;
+            transform.localPosition = desiredPosition;
     }
 
     public virtual void SetScale(Vector3 scale, bool force = false)
@@ -61,4 +59,5 @@ public class ChessPiece : MonoBehaviour
         if (force)
             transform.localScale = desiredScale;
     }
+
 }

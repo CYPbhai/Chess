@@ -1,7 +1,5 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
-using Unity.Mathematics;
-using Unity.VisualScripting;
 using TMPro;
 
 public enum SpecialMove
@@ -14,9 +12,9 @@ public enum SpecialMove
 
 public class ChessBoard : MonoBehaviour
 {
+    [SerializeField] private ChessRLAgent whiteAgent, blackAgent;
     [Header("UI")]
     [SerializeField] private GameObject victoryScreen;
-    [SerializeField] private TMP_Text victoryText;
 
     [Header("Art")]
     [SerializeField] private Material tileMaterial;
@@ -52,10 +50,6 @@ public class ChessBoard : MonoBehaviour
 
     // Preallocated arrays and lists for simulation reuse
     private ChessPiece[,] simulationGrid = new ChessPiece[TILE_COUNT_X, TILE_COUNT_Y];
-    private List<Vector2Int> simAttacks = new List<Vector2Int>();
-
-    // Added declaration for position history (for threefold repetition check)
-    private List<string> positionHistory = new List<string>();
 
     private void Awake()
     {
@@ -69,6 +63,25 @@ public class ChessBoard : MonoBehaviour
         GenerateGrid(tileSize, TILE_COUNT_X, TILE_COUNT_Y);
         SpawnPieces();
         PositionPieces();
+        if (GameManager.Instance.IsTwoPlayer)
+        {
+            whiteAgent.gameObject.SetActive(false);
+            blackAgent.gameObject.SetActive(false);
+        }
+        else
+        {
+            if(GameManager.Instance.IsPlayerWhite)
+            {
+                whiteAgent.gameObject.SetActive(false);
+                blackAgent.gameObject.SetActive(true);
+            }
+            else
+            {
+                transform.Rotate(0, 180, 0);
+                whiteAgent.gameObject.SetActive(true);
+                blackAgent.gameObject.SetActive(false);
+            }
+        }
     }
 
     private void Update()
@@ -82,8 +95,19 @@ public class ChessBoard : MonoBehaviour
                 return;
             }
         }
-        HandleInput();
+        if (GameManager.Instance.IsTwoPlayer)
+        {
+            HandleInput();
+        }
+        else
+        {
+            if((GameManager.Instance.IsPlayerWhite && isWhiteTurn) || (!GameManager.Instance.IsPlayerWhite && !isWhiteTurn))
+            {
+                HandleInput();
+            }
+        }
     }
+
 
     private void HandleInput()
     {
@@ -106,7 +130,7 @@ public class ChessBoard : MonoBehaviour
                         currentlyDragging = chessPieces[hitPosition.x, hitPosition.y];
                         availableMoves = currentlyDragging.GetAvailableMoves(ref chessPieces, TILE_COUNT_X, TILE_COUNT_Y);
                         specialMove = currentlyDragging.GetSpecialMoves(ref chessPieces, ref moveList, ref availableMoves);
-                        PreventCheck();
+                        PreventCheck(currentlyDragging);
                         HighlightTiles();
                     }
                 }
@@ -143,6 +167,8 @@ public class ChessBoard : MonoBehaviour
             {
                 Vector3 targetPosition = ray.GetPoint(distance);
                 targetPosition.y = dragOffset;
+                if(!GameManager.Instance.IsTwoPlayer && !GameManager.Instance.IsPlayerWhite)
+                    targetPosition = transform.InverseTransformPoint(targetPosition);
                 currentlyDragging.SetPosition(targetPosition);
             }
         }
@@ -182,7 +208,7 @@ public class ChessBoard : MonoBehaviour
         MeshRenderer meshRenderer = tile.AddComponent<MeshRenderer>();
         meshFilter.sharedMesh = sharedTileMesh;
         meshRenderer.material = tileMaterial;
-        tile.transform.position = new Vector3(x * tileSize, yOffset, y * tileSize) - bounds;
+        tile.transform.localPosition = new Vector3(x * tileSize, yOffset, y * tileSize) - bounds;
         tile.layer = layerTile;
         tile.AddComponent<BoxCollider>();
         return tile;
@@ -282,10 +308,8 @@ public class ChessBoard : MonoBehaviour
         DisplayVictory(team);
     }
 
-    public void OnResetButton()
+    public void OnRestartButton()
     {
-        victoryText.text = "";
-        victoryScreen.SetActive(false);
         currentlyDragging = null;
         availableMoves.Clear();
         moveList.Clear();
@@ -311,7 +335,7 @@ public class ChessBoard : MonoBehaviour
         isWhiteTurn = true;
     }
 
-    public void OnExitButton()
+    public void OnMainMenuButton()
     {
         Application.Quit();
 #if UNITY_EDITOR
@@ -321,23 +345,24 @@ public class ChessBoard : MonoBehaviour
 
     private void DisplayVictory(int winningTeam)
     {
-        victoryScreen.SetActive(true);
+        VictoryScreenMenuUI.Instance.Show(GameplayMenuUI.Instance);
+        GameplayMenuUI.Instance.Hide(false);
         switch (winningTeam)
         {
             case 0:
-                victoryText.text = "WHITE TEAM WON";
+                VictoryScreenMenuUI.Instance.UpdateVictoryText("WHITE TEAM WON");
                 break;
             case 1:
-                victoryText.text = "BLACK TEAM WON";
+                VictoryScreenMenuUI.Instance.UpdateVictoryText("BLACK TEAM WON");
                 break;
             case 2:
-                victoryText.text = "DRAW BY STALEMATE";
+                VictoryScreenMenuUI.Instance.UpdateVictoryText("DRAW BY STALEMATE");
                 break;
             case 3:
-                victoryText.text = "DRAW BY INSUFFICIENT MATERIAL";
+                VictoryScreenMenuUI.Instance.UpdateVictoryText("DRAW BY INSUFFICIENT MATERIAL");
                 break;
             case 4:
-                victoryText.text = "DRAW BY 50 KING MOVES RULE";
+                VictoryScreenMenuUI.Instance.UpdateVictoryText("DRAW BY 50 KING MOVES RULE");
                 break;
         }
     }
@@ -436,7 +461,7 @@ public class ChessBoard : MonoBehaviour
         }
     }
 
-    private void PreventCheck()
+    private void PreventCheck(ChessPiece cp)
     {
         ChessPiece targetKing = null;
         for (int x = 0; x < TILE_COUNT_X; x++)
@@ -444,7 +469,7 @@ public class ChessBoard : MonoBehaviour
             for (int y = 0; y < TILE_COUNT_Y; y++)
             {
                 if (chessPieces[x, y] == null) continue;
-                if (chessPieces[x, y].type == ChessPieceType.King && chessPieces[x, y].team == currentlyDragging.team)
+                if (chessPieces[x, y].type == ChessPieceType.King && chessPieces[x, y].team == cp.team)
                 {
                     targetKing = chessPieces[x, y];
                     break;
@@ -454,7 +479,7 @@ public class ChessBoard : MonoBehaviour
         }
         if (targetKing != null)
         {
-            SimulateMoveForSinglePiece(currentlyDragging, ref availableMoves, targetKing);
+            SimulateMoveForSinglePiece(cp, ref availableMoves, targetKing);
         }
     }
 
@@ -515,8 +540,13 @@ public class ChessBoard : MonoBehaviour
         }
     }
 
-    private int CheckForCheckmate()
+    public int CheckForCheckmate()
     {
+        if (moveList.Count == 0)
+        {
+            // No moves have been made; return 0 indicating the game continues.
+            return 0;
+        }
         var lastMove = moveList[moveList.Count - 1];
         int targetTeam = (chessPieces[lastMove[1].x, lastMove[1].y].team == 0) ? 1 : 0;
         List<ChessPiece> attackingPieces = new List<ChessPiece>();
@@ -558,8 +588,12 @@ public class ChessBoard : MonoBehaviour
                 List<Vector2Int> defendingMoves = cp.GetAvailableMoves(ref chessPieces, TILE_COUNT_X, TILE_COUNT_Y);
                 SimulateMoveForSinglePiece(cp, ref defendingMoves, targetKing);
                 if (defendingMoves.Count != 0)
+                {
+                    AudioManager.Instance.PlaySFX("Check");
                     return 0; // There is a valid move, no checkmate
+                }
             }
+            AudioManager.Instance.PlaySFX("Checkmate");
             return 1; // Checkmate Exit
         }
         else
@@ -576,13 +610,25 @@ public class ChessBoard : MonoBehaviour
                     break;
                 }
             }
-            if (!hasLegalMove) return 2; // Stalemate Exit
+            if (!hasLegalMove)
+            {
+                AudioManager.Instance.PlaySFX("Checkmate");
+                return 2; // Stalemate Exit
+            }
 
             // Insufficient Material Check
-            if (IsInsufficientMaterial()) return 3; // Draw by insufficient material
+            if (IsInsufficientMaterial()) 
+            {
+                AudioManager.Instance.PlaySFX("Checkmate");
+                return 3; 
+            } // Draw by insufficient material
 
             // 50-Move Rule Check (Removed reference to a non-existent move[2])
-            if (IsFiftyMoveRule()) return 4; // Draw by 50-move rule
+            if (IsFiftyMoveRule())
+            {
+                AudioManager.Instance.PlaySFX("Checkmate");
+                return 4; // Draw by 50-move rule
+            }
         }
         return 0; // Game continues
     }
@@ -637,8 +683,6 @@ public class ChessBoard : MonoBehaviour
         return false;
     }
 
-
-
     // Operations
     private bool ContainsValidMove(ref List<Vector2Int> moves, Vector2Int pos)
     {
@@ -650,8 +694,11 @@ public class ChessBoard : MonoBehaviour
         return false;
     }
 
-    private bool MoveTo(ChessPiece cp, int x, int y)
+    public bool MoveTo(ChessPiece cp, int x, int y)
     {
+        availableMoves = cp.GetAvailableMoves(ref chessPieces, TILE_COUNT_X, TILE_COUNT_Y);
+        specialMove = cp.GetSpecialMoves(ref chessPieces, ref moveList, ref availableMoves);
+        PreventCheck(cp);
         if (!ContainsValidMove(ref availableMoves, new Vector2Int(x, y)))
             return false;
         Vector2Int previousPosition = new Vector2Int(cp.currentX, cp.currentY);
@@ -660,6 +707,7 @@ public class ChessBoard : MonoBehaviour
             ChessPiece ocp = chessPieces[x, y];
             if (cp.team == ocp.team)
                 return false;
+            AudioManager.Instance.PlaySFX("Capture");
             if (ocp.team == 0)
             {
                 if (ocp.type == ChessPieceType.King)
@@ -679,10 +727,15 @@ public class ChessBoard : MonoBehaviour
                                 new Vector3(tileSize / 2, 0, tileSize / 2) + (Vector3.back * deathSpacing) * deadBlacks.Count);
             }
         }
+        else
+        {
+            AudioManager.Instance.PlaySFX("Move");
+        }
         chessPieces[x, y] = cp;
         chessPieces[previousPosition.x, previousPosition.y] = null;
         PositionSinglePiece(x, y);
         isWhiteTurn = !isWhiteTurn;
+        GameplayMenuUI.Instance.UpdateTurnText(isWhiteTurn);
         moveList.Add(new Vector2Int[] { previousPosition, new Vector2Int(x, y) });
         ProcessSpecialMove();
         switch (CheckForCheckmate())
@@ -702,6 +755,43 @@ public class ChessBoard : MonoBehaviour
                 CheckMate(4);
                 break;
         }
+        if (!GameManager.Instance.IsTwoPlayer)
+        {
+            if (isWhiteTurn && !GameManager.Instance.IsPlayerWhite)
+                whiteAgent.RequestDecision();
+            else if(!isWhiteTurn && GameManager.Instance.IsPlayerWhite)
+                blackAgent.RequestDecision();
+            RemoveHighlightTiles();
+        }
         return true;
+    }
+
+    public bool GetIsWhiteTurn()
+    {
+        return isWhiteTurn;
+    }
+
+    // Returns the ChessPiece at a given position.
+    public void GetPieceAt(out ChessPiece cp, int x, int y)
+    {
+        cp = chessPieces[x, y];
+    }
+
+    public int[,] GetChessPieces()
+    {
+        int[,] intArray = new int[TILE_COUNT_X, TILE_COUNT_Y];
+        for(int x=0; x< TILE_COUNT_X; x++)
+        {
+            for(int y=0; y<TILE_COUNT_Y; y++)
+            {
+                if (chessPieces[x, y] == null)
+                {
+                    intArray[x, y] = 0;
+                }
+                else
+                    intArray[x, y] = chessPieces[x, y].team == 0 ? (int)chessPieces[x, y].type : -(int)chessPieces[x, y].type;
+            }
+        }
+        return intArray;
     }
 }

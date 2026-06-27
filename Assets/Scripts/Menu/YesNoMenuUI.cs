@@ -31,6 +31,7 @@ public class YesNoMenuUI : MenuUI
             if(previousMenu == PauseMenuUI.Instance || previousMenu == VictoryScreenMenuUI.Instance)
             {
                 Time.timeScale = 1.0f;
+                GameManager.Instance.IsAIvsAI = false;
                 SceneManager.LoadScene("MainMenuScene");
             }
         });

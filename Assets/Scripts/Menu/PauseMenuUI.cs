@@ -33,8 +33,10 @@ public class PauseMenuUI : MenuUI
             Hide(false);
         });
     }
+
     private void Start()
     {
         Hide(false);
     }
+
 }

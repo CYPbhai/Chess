@@ -32,6 +32,7 @@ public class MainMenuUI : MenuUI
             Hide(false);
         });
     }
+
     private void Start()
     {
         Show(null);

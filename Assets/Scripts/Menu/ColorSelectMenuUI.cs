@@ -22,16 +22,14 @@ public class ColorSelectMenuUI : MenuUI
 
         whiteButton.onClick.AddListener(() =>
         {
-            AudioManager.Instance.PlayClickSound();
             GameManager.Instance.IsPlayerWhite = true;
-            SceneManager.LoadScene("LoadingScene");
+            HandleCommonCode();
         });
 
         blackButton.onClick.AddListener(() =>
         {
-            AudioManager.Instance.PlayClickSound();
             GameManager.Instance.IsPlayerWhite = false;
-            SceneManager.LoadScene("LoadingScene");
+            HandleCommonCode();
         });
 
         backButton.onClick.AddListener(() =>
@@ -39,6 +37,13 @@ public class ColorSelectMenuUI : MenuUI
             AudioManager.Instance.PlayClickSound();
             Hide(true);
         });
+    }
+
+    private void HandleCommonCode()
+    {
+        AudioManager.Instance.PlayClickSound();
+        DifficultyMenuUI.Instance.Show(this);
+        Hide(false);
     }
 
     private void Start()

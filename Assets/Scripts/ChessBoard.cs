@@ -1,6 +1,5 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
-using TMPro;
 
 public enum SpecialMove
 {
@@ -12,7 +11,7 @@ public enum SpecialMove
 
 public class ChessBoard : MonoBehaviour
 {
-    [SerializeField] private ChessRLAgent whiteAgent, blackAgent;
+    [SerializeField] private ChessAI whiteAI, blackAI;
     [Header("UI")]
     [SerializeField] private GameObject victoryScreen;
 
@@ -29,8 +28,10 @@ public class ChessBoard : MonoBehaviour
     [SerializeField] private GameObject[] prefabs;
     [SerializeField] private Material[] teamMaterials;
 
+    private bool isAIVsAI = false;
+
     // LOGIC
-    private ChessPiece[,] chessPieces;
+    public ChessPiece[,] chessPieces;
     private ChessPiece currentlyDragging;
     private List<Vector2Int> availableMoves = new List<Vector2Int>();
     private List<ChessPiece> deadWhites = new List<ChessPiece>();
@@ -47,10 +48,11 @@ public class ChessBoard : MonoBehaviour
     private Mesh sharedTileMesh;
     private SpecialMove specialMove;
     private List<Vector2Int[]> moveList = new List<Vector2Int[]>();
+    private bool isGameOver = false;
 
     // Preallocated arrays and lists for simulation reuse
     private ChessPiece[,] simulationGrid = new ChessPiece[TILE_COUNT_X, TILE_COUNT_Y];
-
+    private int halfMoveClock = 0;
     private void Awake()
     {
         isWhiteTurn = true;
@@ -63,29 +65,39 @@ public class ChessBoard : MonoBehaviour
         GenerateGrid(tileSize, TILE_COUNT_X, TILE_COUNT_Y);
         SpawnPieces();
         PositionPieces();
-        if (GameManager.Instance.IsTwoPlayer)
+        if (GameManager.Instance.IsAIvsAI)
         {
-            whiteAgent.gameObject.SetActive(false);
-            blackAgent.gameObject.SetActive(false);
+            whiteAI.gameObject.SetActive(true);
+            blackAI.gameObject.SetActive(true);
+        }
+        else if (GameManager.Instance.IsTwoPlayer)
+        {
+            whiteAI.gameObject.SetActive(false);
+            blackAI.gameObject.SetActive(false);
         }
         else
         {
-            if(GameManager.Instance.IsPlayerWhite)
-            {
-                whiteAgent.gameObject.SetActive(false);
-                blackAgent.gameObject.SetActive(true);
-            }
-            else
-            {
+            whiteAI.gameObject.SetActive(!GameManager.Instance.IsPlayerWhite);
+            blackAI.gameObject.SetActive(GameManager.Instance.IsPlayerWhite);
+
+            if (!GameManager.Instance.IsPlayerWhite)
                 transform.Rotate(0, 180, 0);
-                whiteAgent.gameObject.SetActive(true);
-                blackAgent.gameObject.SetActive(false);
-            }
+        }
+    }
+
+    private void Start()
+    {
+        isAIVsAI = GameManager.Instance.IsAIvsAI;
+        
+        if ( isAIVsAI ||(!GameManager.Instance.IsTwoPlayer && !GameManager.Instance.IsPlayerWhite))
+        {
+            whiteAI.PlayTurn();
         }
     }
 
     private void Update()
     {
+        if (isGameOver || isAIVsAI) return;
         if (currentCamera == null)
         {
             currentCamera = Camera.main;
@@ -95,6 +107,9 @@ public class ChessBoard : MonoBehaviour
                 return;
             }
         }
+
+        if (Input.touchCount > 1) return;
+
         if (GameManager.Instance.IsTwoPlayer)
         {
             HandleInput();
@@ -107,7 +122,6 @@ public class ChessBoard : MonoBehaviour
             }
         }
     }
-
 
     private void HandleInput()
     {
@@ -305,6 +319,7 @@ public class ChessBoard : MonoBehaviour
     // Checkmate
     private void CheckMate(int team)
     {
+        isGameOver = true;
         DisplayVictory(team);
     }
 
@@ -313,6 +328,8 @@ public class ChessBoard : MonoBehaviour
         currentlyDragging = null;
         availableMoves.Clear();
         moveList.Clear();
+        isGameOver = false;
+        halfMoveClock = 0;
 
         for (int x = 0; x < TILE_COUNT_X; x++)
         {
@@ -333,6 +350,11 @@ public class ChessBoard : MonoBehaviour
         SpawnPieces();
         PositionPieces();
         isWhiteTurn = true;
+
+        if (isAIVsAI)
+        {
+            whiteAI.PlayTurn();
+        }
     }
 
     public void OnMainMenuButton()
@@ -343,11 +365,11 @@ public class ChessBoard : MonoBehaviour
 #endif
     }
 
-    private void DisplayVictory(int winningTeam)
+    private void DisplayVictory(int winningCondition)
     {
         VictoryScreenMenuUI.Instance.Show(GameplayMenuUI.Instance);
         GameplayMenuUI.Instance.Hide(false);
-        switch (winningTeam)
+        switch (winningCondition)
         {
             case 0:
                 VictoryScreenMenuUI.Instance.UpdateVictoryText("WHITE TEAM WON");
@@ -653,32 +675,14 @@ public class ChessBoard : MonoBehaviour
                     return true;
             }
         }
-        return false; // Otherwise, it's not insufficient material
+        return false;
     }
 
     private bool IsFiftyMoveRule()
     {
-        int moveCount = 0;
-        for (int i = moveList.Count - 1; i >= 0; i--)
+        if (halfMoveClock >= 100)
         {
-            var move = moveList[i];
-            ChessPiece movedPiece = chessPieces[move[1].x, move[1].y];
-
-            // Check for pawn moves or captures
-            if (movedPiece != null && (movedPiece.type == ChessPieceType.Pawn || move[1] != move[0]))
-            {
-                moveCount = 0; // Reset count due to pawn move or capture
-            }
-            else
-            {
-                moveCount++;
-            }
-
-            // Check if 50-move rule is satisfied
-            if (moveCount >= 50)
-            {
-                return true;
-            }
+            return true;
         }
         return false;
     }
@@ -702,6 +706,20 @@ public class ChessBoard : MonoBehaviour
         if (!ContainsValidMove(ref availableMoves, new Vector2Int(x, y)))
             return false;
         Vector2Int previousPosition = new Vector2Int(cp.currentX, cp.currentY);
+
+        //  50-MOVE RULE TRACKING 
+        bool isPawnMove = (cp.type == ChessPieceType.Pawn);
+        bool isCapture = (chessPieces[x, y] != null);
+
+        if (isPawnMove || isCapture)
+        {
+            halfMoveClock = 0; // Reset the clock
+        }
+        else
+        {
+            halfMoveClock++; // Increment the clock
+        }
+
         if (chessPieces[x, y] != null)
         {
             ChessPiece ocp = chessPieces[x, y];
@@ -755,14 +773,27 @@ public class ChessBoard : MonoBehaviour
                 CheckMate(4);
                 break;
         }
-        if (!GameManager.Instance.IsTwoPlayer)
+
+        RemoveHighlightTiles();
+
+        if (!isGameOver)
         {
-            if (isWhiteTurn && !GameManager.Instance.IsPlayerWhite)
-                whiteAgent.RequestDecision();
-            else if(!isWhiteTurn && GameManager.Instance.IsPlayerWhite)
-                blackAgent.RequestDecision();
-            RemoveHighlightTiles();
+            if (isAIVsAI)
+            {
+                if (isWhiteTurn)
+                    whiteAI.PlayTurn();
+                else
+                    blackAI.PlayTurn();
+            }
+            else if (!GameManager.Instance.IsTwoPlayer)
+            {
+                if (isWhiteTurn && !GameManager.Instance.IsPlayerWhite)
+                    whiteAI.PlayTurn();
+                else if (!isWhiteTurn && GameManager.Instance.IsPlayerWhite)
+                    blackAI.PlayTurn();
+            }
         }
+        
         return true;
     }
 

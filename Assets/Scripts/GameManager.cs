@@ -1,10 +1,18 @@
 using UnityEngine;
+public enum AIDifficulty
+{
+    Easy,
+    Medium,
+    Hard
+}
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
     private bool isTwoPlayer;
     private bool isPlayerWhite;
+    private AIDifficulty difficulty = AIDifficulty.Medium;
+    private bool isAIvsAI;
     private void Awake()
     {
         if(Instance)
@@ -16,7 +24,7 @@ public class GameManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
     }
-
+    
     public bool IsTwoPlayer
     {
         get { return isTwoPlayer; }
@@ -28,4 +36,14 @@ public class GameManager : MonoBehaviour
         get { return isPlayerWhite; }
         set { isPlayerWhite = value; }
     }
+    public AIDifficulty Difficulty
+    {
+        get { return difficulty; }
+        set { difficulty = value; }
+    }
+    public bool IsAIvsAI
+    {
+        get { return isAIvsAI; }
+        set { isAIvsAI = value; }
+    }    
 }

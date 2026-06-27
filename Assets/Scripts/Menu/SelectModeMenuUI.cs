@@ -8,6 +8,7 @@ public class SelectModeMenuUI : MenuUI
 
     [SerializeField] private Button singlePlayerButton;
     [SerializeField] private Button twoPlayerButton;
+    [SerializeField] private Button AIvsAIButton;
     [SerializeField] private Button backButton;
 
     private void Awake()
@@ -36,6 +37,15 @@ public class SelectModeMenuUI : MenuUI
             SceneManager.LoadScene("LoadingScene");
         });
 
+        AIvsAIButton.onClick.AddListener(() =>
+        {
+            AudioManager.Instance.PlayClickSound();
+            GameManager.Instance.IsAIvsAI = true;
+            GameManager.Instance.IsPlayerWhite = true;
+            DifficultyMenuUI.Instance.Show(this);
+            Hide(false);
+        });
+        
         backButton.onClick.AddListener(() =>
         {
             AudioManager.Instance.PlayClickSound();

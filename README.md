@@ -18,17 +18,18 @@ a hand-crafted AI engine and multiple game modes.
 - AI vs AI
 
 ## Difficulty Levels
-| Level  | Search Depth |
-|--------|-------------|
-| Easy   | 3           |
-| Medium | 4           |
-| Hard   | 5           |
+| Level      | Search Depth|
+|------------|-------------|
+| Easy       | 3           |
+| Medium     | 4           |
+| Hard       | 5           |
+| Stockfish  | 15          |
 
 ## Built With
 - Unity Engine
 - C#
 - .NET Tasks (async/await)
-
+- Stockfish
 
 ## Gameplay
 [Watch Gameplay Video](https://drive.google.com/file/d/1yz8aZ8_KOpZXpOLyK5PPWVUpTO0E1sx8/view?usp=drive_link)

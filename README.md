@@ -28,3 +28,7 @@ a hand-crafted AI engine and multiple game modes.
 - Unity Engine
 - C#
 - .NET Tasks (async/await)
+
+
+## Gameplay
+[Watch Gameplay Video](https://drive.google.com/file/d/1yz8aZ8_KOpZXpOLyK5PPWVUpTO0E1sx8/view?usp=drive_link)

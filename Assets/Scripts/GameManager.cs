@@ -6,6 +6,12 @@ public enum AIDifficulty
     Hard
 }
 
+public enum AIType 
+{ 
+    CustomMinimax, 
+    Stockfish 
+}
+
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
@@ -13,6 +19,7 @@ public class GameManager : MonoBehaviour
     private bool isPlayerWhite;
     private AIDifficulty difficulty = AIDifficulty.Medium;
     private bool isAIvsAI;
+    private AIType _aiType = AIType.CustomMinimax;
     private void Awake()
     {
         if(Instance)
@@ -46,4 +53,10 @@ public class GameManager : MonoBehaviour
         get { return isAIvsAI; }
         set { isAIvsAI = value; }
     }    
+
+    public AIType aiType
+    {
+        get { return _aiType; }
+        set { _aiType = value; }
+    }
 }

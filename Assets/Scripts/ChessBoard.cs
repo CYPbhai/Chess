@@ -11,7 +11,11 @@ public enum SpecialMove
 
 public class ChessBoard : MonoBehaviour
 {
+    [HideInInspector] public string uciMoveHistory = "";
+
     [SerializeField] private ChessAI whiteAI, blackAI;
+    [SerializeField] private StockfishAI stockfishAI;
+
     [Header("UI")]
     [SerializeField] private GameObject victoryScreen;
 
@@ -53,6 +57,8 @@ public class ChessBoard : MonoBehaviour
     // Preallocated arrays and lists for simulation reuse
     private ChessPiece[,] simulationGrid = new ChessPiece[TILE_COUNT_X, TILE_COUNT_Y];
     private int halfMoveClock = 0;
+
+
     private void Awake()
     {
         isWhiteTurn = true;
@@ -77,8 +83,18 @@ public class ChessBoard : MonoBehaviour
         }
         else
         {
-            whiteAI.gameObject.SetActive(!GameManager.Instance.IsPlayerWhite);
-            blackAI.gameObject.SetActive(GameManager.Instance.IsPlayerWhite);
+            if(GameManager.Instance.aiType == AIType.CustomMinimax)
+            {
+                whiteAI.gameObject.SetActive(!GameManager.Instance.IsPlayerWhite);
+                blackAI.gameObject.SetActive(GameManager.Instance.IsPlayerWhite);
+                stockfishAI.gameObject.SetActive(false);
+            }
+            else if(GameManager.Instance.aiType == AIType.Stockfish)
+            {
+                whiteAI.gameObject.SetActive(false);
+                blackAI.gameObject.SetActive(false);
+                stockfishAI.gameObject.SetActive(true);
+            }
 
             if (!GameManager.Instance.IsPlayerWhite)
                 transform.Rotate(0, 180, 0);
@@ -91,7 +107,10 @@ public class ChessBoard : MonoBehaviour
         
         if ( isAIVsAI ||(!GameManager.Instance.IsTwoPlayer && !GameManager.Instance.IsPlayerWhite))
         {
-            whiteAI.PlayTurn();
+            if (GameManager.Instance.aiType == AIType.CustomMinimax)
+                whiteAI.PlayTurn();
+            else if (GameManager.Instance.aiType == AIType.Stockfish)
+                stockfishAI.PlayTurn();
         }
     }
 
@@ -330,7 +349,7 @@ public class ChessBoard : MonoBehaviour
         moveList.Clear();
         isGameOver = false;
         halfMoveClock = 0;
-
+        uciMoveHistory = "";
         for (int x = 0; x < TILE_COUNT_X; x++)
         {
             for (int y = 0; y < TILE_COUNT_Y; y++)
@@ -351,9 +370,12 @@ public class ChessBoard : MonoBehaviour
         PositionPieces();
         isWhiteTurn = true;
 
-        if (isAIVsAI)
+        if (isAIVsAI || (!GameManager.Instance.IsTwoPlayer && !GameManager.Instance.IsPlayerWhite))
         {
-            whiteAI.PlayTurn();
+            if (GameManager.Instance.aiType == AIType.CustomMinimax)
+                whiteAI.PlayTurn();
+            else if (GameManager.Instance.aiType == AIType.Stockfish)
+                stockfishAI.PlayTurn();
         }
     }
 
@@ -756,6 +778,7 @@ public class ChessBoard : MonoBehaviour
         GameplayMenuUI.Instance.UpdateTurnText(isWhiteTurn);
         moveList.Add(new Vector2Int[] { previousPosition, new Vector2Int(x, y) });
         ProcessSpecialMove();
+        uciMoveHistory += ChessNotationHelper.ToUCI(previousPosition.x, previousPosition.y, x, y, specialMove) + " ";
         switch (CheckForCheckmate())
         {
             default:
@@ -780,17 +803,34 @@ public class ChessBoard : MonoBehaviour
         {
             if (isAIVsAI)
             {
-                if (isWhiteTurn)
-                    whiteAI.PlayTurn();
-                else
-                    blackAI.PlayTurn();
+                if (GameManager.Instance.aiType == AIType.CustomMinimax)
+                {
+                    if (isWhiteTurn)
+                        whiteAI.PlayTurn();
+                    else
+                        blackAI.PlayTurn();
+                }
+                else if (GameManager.Instance.aiType == AIType.Stockfish)
+                {
+                    stockfishAI.PlayTurn();
+                }
             }
             else if (!GameManager.Instance.IsTwoPlayer)
             {
                 if (isWhiteTurn && !GameManager.Instance.IsPlayerWhite)
-                    whiteAI.PlayTurn();
+                {
+                    if (GameManager.Instance.aiType == AIType.CustomMinimax)
+                        whiteAI.PlayTurn();
+                    else if (GameManager.Instance.aiType == AIType.Stockfish)
+                        stockfishAI.PlayTurn();
+                }
                 else if (!isWhiteTurn && GameManager.Instance.IsPlayerWhite)
-                    blackAI.PlayTurn();
+                {
+                    if (GameManager.Instance.aiType == AIType.CustomMinimax)
+                        blackAI.PlayTurn();
+                    else if (GameManager.Instance.aiType == AIType.Stockfish)
+                        stockfishAI.PlayTurn();
+                }
             }
         }
         

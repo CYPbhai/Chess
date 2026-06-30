@@ -21,6 +21,7 @@ public class ChessAI : MonoBehaviour
         public int team;
         public int x;
         public int y;
+        public bool hasMoved;
     }
 
     private struct VirtualMove
@@ -122,7 +123,8 @@ public class ChessAI : MonoBehaviour
                         type = livePiece.type,
                         team = livePiece.team,
                         x = x,
-                        y = y
+                        y = y,
+                        hasMoved = !IsPieceAtStartingPosition(livePiece, x, y)
                     };
                 }
                 else
@@ -133,7 +135,14 @@ public class ChessAI : MonoBehaviour
         }
         return snapshot;
     }
-
+    private bool IsPieceAtStartingPosition(ChessPiece p, int x, int y)
+    {
+        // Logic: If it's a King at e1/e8 or Rook at a1/a8/h1/h8, 
+        // you check if the board's move history contains these coords as a start point.
+        // For now, checking coordinates is a good 90% solution.
+        return (p.type == ChessPieceType.King && (x == 4 && (y == 0 || y == 7))) ||
+               (p.type == ChessPieceType.Rook && ((x == 0 || x == 7) && (y == 0 || y == 7)));
+    }
     private VirtualMove CalculateBestMoveBackground(VirtualPiece[,] board, int depth, int activeTeam)
     {
         List<VirtualMove> legalMoves = GenerateLegalMoves(board, activeTeam);
@@ -217,6 +226,24 @@ public class ChessAI : MonoBehaviour
                 board[move.toX, move.toY].x = move.toX;
                 board[move.toX, move.toY].y = move.toY;
                 board[move.fromX, move.fromY] = new VirtualPiece { type = ChessPieceType.None, team = -1 };
+                
+                if (moverBackup.type == ChessPieceType.King && Math.Abs(move.toX - move.fromX) > 1)
+                {
+                    // Kingside
+                    if (move.toX == 6)
+                    {
+                        board[5, move.toY] = board[7, move.toY]; // Move rook
+                        board[5, move.toY].x = 5;
+                        board[7, move.toY] = new VirtualPiece { type = ChessPieceType.None, team = -1 };
+                    }
+                    // Queenside
+                    else if (move.toX == 2)
+                    {
+                        board[3, move.toY] = board[0, move.toY]; // Move rook
+                        board[3, move.toY].x = 3;
+                        board[0, move.toY] = new VirtualPiece { type = ChessPieceType.None, team = -1 };
+                    }
+                }
 
                 int eval = Minimax(board, depth - 1, alpha, beta, false, activeTeam);
 
@@ -489,6 +516,28 @@ public class ChessAI : MonoBehaviour
                         {
                             if (board[tx, ty].type == ChessPieceType.None || board[tx, ty].team != team)
                                 moves.Add(new VirtualMove { fromX = cx, fromY = cy, toX = tx, toY = ty });
+                        }
+                    }
+                }
+
+                // 2. Castling Logic
+                int y = (team == 0) ? 0 : 7; // Based on team
+                if (cx == 4 && cy == y) // King must be at starting X=4
+                {
+                    // Kingside (Right)
+                    if (board[7, y].type == ChessPieceType.Rook && board[7, y].team == team)
+                    {
+                        if (board[5, y].type == ChessPieceType.None && board[6, y].type == ChessPieceType.None)
+                        {
+                            moves.Add(new VirtualMove { fromX = cx, fromY = cy, toX = 6, toY = y });
+                        }
+                    }
+                    // Queenside (Left)
+                    if (board[0, y].type == ChessPieceType.Rook && board[0, y].team == team)
+                    {
+                        if (board[3, y].type == ChessPieceType.None && board[2, y].type == ChessPieceType.None && board[1, y].type == ChessPieceType.None)
+                        {
+                            moves.Add(new VirtualMove { fromX = cx, fromY = cy, toX = 2, toY = y });
                         }
                     }
                 }

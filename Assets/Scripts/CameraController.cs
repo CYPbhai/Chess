@@ -5,7 +5,7 @@ public class CameraController : MonoBehaviour
     [Header("Target Settings")]
     [Tooltip("The center point the camera revolves around.")]
     public Transform target;
-    
+
     [Header("Distance & Zoom")]
     public float distance = 7.0f;
     public float minDistance = 3.0f;
@@ -22,8 +22,8 @@ public class CameraController : MonoBehaviour
     public float rotationSmoothTime = 0.12f; // How "heavy" the rotation feels
 
     [Header("Angle Limits")]
-    public float yMinLimit = 15f; 
-    public float yMaxLimit = 85f; 
+    public float yMinLimit = 15f;
+    public float yMaxLimit = 85f;
 
     // --- State Variables ---
     private float targetX = 0.0f;

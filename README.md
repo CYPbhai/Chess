@@ -10,7 +10,7 @@ a hand-crafted AI engine and multiple game modes.
 - Board evaluation using piece-weight heuristics
 - Center control bonus strategy
 - Repetition penalty to avoid draw loops
-- Async AI thinking — no UI freezing during search
+- Async AI thinking - no UI freezing during search
 
 ## Game Modes
 - Human vs AI
